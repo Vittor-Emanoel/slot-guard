@@ -20,4 +20,15 @@ export class PrismaMovieRepository implements IMovieRepository {
 
     return movie;
   }
+
+  async findMany(): Promise<Movie[]> {
+    return await prisma.movie.findMany({
+      select: {
+        id: true,
+        title: true,
+        durationInMinutes: true,
+        createdAt: true,
+      },
+    });
+  }
 }
