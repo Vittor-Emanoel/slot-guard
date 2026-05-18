@@ -1,0 +1,219 @@
+// This is your Prisma schema file.
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SeatHoldStatus {
+  active
+  confirmed
+  expired
+  released
+}
+
+enum ReservationStatus {
+  confirmed
+  cancelled
+}
+
+enum ReservationSeatStatus {
+  confirmed
+  cancelled
+}
+
+enum ReservationEventType {
+  hold_created
+  hold_rejected
+  hold_confirmed
+  hold_expired
+  hold_released
+
+  reservation_created
+  reservation_confirmed
+  reservation_cancelled
+
+  simulation_started
+  simulation_completed
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  seatHolds         SeatHold[]
+  reservations      Reservation[]
+  reservationEvents ReservationEvent[]
+
+  @@map("users")
+}
+
+model Movie {
+  id                String   @id @default(uuid())
+  title             String   @unique
+  durationInMinutes Int      @map("duration_in_minutes")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  movieSessions MovieSession[]
+
+  @@map("movies")
+}
+
+model Room {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  rowCount    Int      @map("row_count")
+  seatsPerRow Int      @map("seats_per_row")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  seats         Seat[]
+  movieSessions MovieSession[]
+
+  @@map("rooms")
+}
+
+model Seat {
+  id         String   @id @default(uuid())
+  roomId     String   @map("room_id")
+  rowLabel   String   @map("row_label")
+  seatNumber Int      @map("seat_number")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  room Room @relation(fields: [roomId], references: [id])
+
+  seatHolds         SeatHold[]
+  reservationSeats  ReservationSeat[]
+  reservationEvents ReservationEvent[]
+
+  @@unique([roomId, rowLabel, seatNumber])
+  @@map("seats")
+}
+
+model MovieSession {
+  id      String @id @default(uuid())
+  movieId String @map("movie_id")
+  roomId  String @map("room_id")
+
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  movie Movie @relation(fields: [movieId], references: [id])
+  room  Room  @relation(fields: [roomId], references: [id])
+
+  seatHolds         SeatHold[]
+  reservations      Reservation[]
+  reservationSeats  ReservationSeat[]
+  reservationEvents ReservationEvent[]
+
+  @@unique([roomId, startsAt])
+  @@index([movieId])
+  @@index([roomId])
+  @@index([startsAt])
+  @@map("movie_sessions")
+}
+
+model SeatHold {
+  id             String         @id @default(uuid())
+  movieSessionId String         @map("movie_session_id")
+  seatId         String         @map("seat_id")
+  userId         String         @map("user_id")
+  status         SeatHoldStatus
+
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  confirmedAt DateTime? @map("confirmed_at")
+  releasedAt  DateTime? @map("released_at")
+  expiredAt   DateTime? @map("expired_at")
+
+  movieSession MovieSession @relation(fields: [movieSessionId], references: [id])
+  seat         Seat         @relation(fields: [seatId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  reservationSeats  ReservationSeat[]
+  reservationEvents ReservationEvent[]
+
+  @@index([movieSessionId, seatId])
+  @@index([movieSessionId, status])
+  @@index([expiresAt])
+  @@map("seat_holds")
+}
+
+model Reservation {
+  id             String            @id @default(uuid())
+  movieSessionId String            @map("movie_session_id")
+  userId         String            @map("user_id")
+  status         ReservationStatus
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  confirmedAt DateTime? @map("confirmed_at")
+  cancelledAt DateTime? @map("cancelled_at")
+
+  movieSession MovieSession @relation(fields: [movieSessionId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  seats  ReservationSeat[]
+  events ReservationEvent[]
+
+  @@index([movieSessionId])
+  @@index([userId])
+  @@index([status])
+  @@map("reservations")
+}
+
+model ReservationSeat {
+  id             String                @id @default(uuid())
+  reservationId  String                @map("reservation_id")
+  movieSessionId String                @map("movie_session_id")
+  seatId         String                @map("seat_id")
+  holdId         String?               @map("hold_id")
+  status         ReservationSeatStatus
+  createdAt      DateTime              @default(now()) @map("created_at")
+
+  reservation  Reservation  @relation(fields: [reservationId], references: [id])
+  movieSession MovieSession @relation(fields: [movieSessionId], references: [id])
+  seat         Seat         @relation(fields: [seatId], references: [id])
+  hold         SeatHold?    @relation(fields: [holdId], references: [id])
+
+  @@unique([reservationId, seatId])
+  @@index([movieSessionId, seatId])
+  @@index([movieSessionId, status])
+  @@map("reservation_seats")
+}
+
+model ReservationEvent {
+  id             String               @id @default(uuid())
+  movieSessionId String               @map("movie_session_id")
+  userId         String?              @map("user_id")
+  eventType      ReservationEventType @map("event_type")
+
+  metadata Json @default("{}")
+
+  seatId        String? @map("seat_id")
+  holdId        String? @map("hold_id")
+  reservationId String? @map("reservation_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  movieSession MovieSession @relation(fields: [movieSessionId], references: [id])
+  user         User?        @relation(fields: [userId], references: [id])
+  seat         Seat?        @relation(fields: [seatId], references: [id])
+  hold         SeatHold?    @relation(fields: [holdId], references: [id])
+  reservation  Reservation? @relation(fields: [reservationId], references: [id])
+
+  @@index([movieSessionId])
+  @@index([userId])
+  @@index([seatId])
+  @@index([holdId])
+  @@index([reservationId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("reservation_events")
+}
