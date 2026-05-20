@@ -27,4 +27,10 @@ export class InMemoryMovieRepository implements IMovieRepository {
   async findMany(): Promise<Movie[]> {
     return this.items;
   }
+
+  async findById(id: string): Promise<Movie | null> {
+    const movie = this.items.find((movie) => movie.id === id);
+
+    return movie ?? null;
+  }
 }
