@@ -4,18 +4,16 @@ import { CreateMovieUseCase } from "./create-movie.use-case";
 import { GetMovieUseCase } from "./get-movie.use-case";
 
 let movieRepository: InMemoryMovieRepository;
-let createMovieUseCase: CreateMovieUseCase;
 let sut: GetMovieUseCase;
 
 describe("Get movie - Use case", () => {
   beforeEach(() => {
     movieRepository = new InMemoryMovieRepository();
-    createMovieUseCase = new CreateMovieUseCase(movieRepository);
     sut = new GetMovieUseCase(movieRepository);
   });
 
   it("should be able to get a movie", async () => {
-    const { movie: createdMovie } = await createMovieUseCase.execute({
+    const createdMovie = await movieRepository.create({
       title: "Dune: Part Two",
       durationInMinutes: 166,
     });
