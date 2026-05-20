@@ -29,4 +29,10 @@ export class InMemoryRoomRepository implements IRoomRepository {
 
     return room ?? null;
   }
+
+  async findById(id: string): Promise<Room | null> {
+    const room = this.items.find((room) => room.id === id);
+
+    return room ?? null;
+  }
 }
